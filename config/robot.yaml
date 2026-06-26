@@ -1,0 +1,64 @@
+robot:
+  name: trashcan-mini-pi5-robot
+  drive_type: differential_2wd_front_caster
+  wheel_track_m: 0.1143      # 4.5 inches between wheel centers
+  wheel_radius_m: 0.0325     # TODO: measure your actual wheel radius; 65 mm diameter is common for TT wheels
+  cog_from_axle_m: null      # TODO: user will provide later
+
+lidar:
+  model: LD20
+  port: /dev/ttyUSB0
+  baud: 230400               # common LD20 default; if no packets, try 115200 and check docs/adapter
+  frame_header: 0x54
+  frame_ver_len: 0x2c
+  points_per_packet: 12
+  mount_yaw_offset_deg: 0.0  # adjust after you know which physical direction is robot-front
+  min_distance_m: 0.08
+  max_distance_m: 8.0
+  min_confidence: 0
+
+camera:
+  model: Logitech C920
+  index: 0
+  width: 640
+  height: 480
+  fps: 30
+  horizontal_fov_deg: 70.0   # rough starter; calibrate later
+  mount_yaw_offset_deg: 0.0
+  mount_pitch_deg: 0.0
+
+fusion_hat:
+  motor_left_port: M0
+  motor_right_port: M1
+  left_reversed: false
+  right_reversed: true
+  max_test_power_percent: 20
+
+safety:
+  front_stop_distance_m: 0.35
+  side_stop_distance_m: 0.20
+  front_zone_half_angle_deg: 25
+  side_zone_width_deg: 35
+
+mapping:
+  cell_size_m: 0.05
+  size_m: 6.0
+  edge_max_neighbor_gap_m: 0.18
+  edge_max_line_error_m: 0.035
+  edge_min_segment_points: 8
+  edge_min_segment_length_m: 0.25
+  two_scan_test_forward_m: 0.30
+  # Point-cloud filters. Use null or 0 to disable a filter.
+  filter_voxel_leaf_size_m: null       # try 0.03 to 0.06 m after raw scans look sane
+  filter_sor_mean_k: 0                 # try 8 to 12
+  filter_sor_std_ratio: 1.0
+  filter_radius_outlier_radius_m: null # try 0.12 to 0.20 m
+  filter_radius_outlier_min_neighbors: 0
+  filter_passthrough_min_x_m: null
+  filter_passthrough_max_x_m: null
+  filter_passthrough_min_y_m: null
+  filter_passthrough_max_y_m: null
+  filter_passthrough_min_range_m: null
+  filter_passthrough_max_range_m: null
+  filter_passthrough_min_bearing_deg: null
+  filter_passthrough_max_bearing_deg: null

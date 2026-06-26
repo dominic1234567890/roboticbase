@@ -1,0 +1,7 @@
+numpy>=1.24
+pyserial>=3.5
+PyYAML>=6.0
+matplotlib>=3.7
+# On Raspberry Pi, OpenCV is often easiest via apt: sudo apt install python3-opencv
+# If pip install works on your Pi, you can uncomment this:
+# opencv-python>=4.8
