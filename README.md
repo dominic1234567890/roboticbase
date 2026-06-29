@@ -1,4 +1,4 @@
-# TrashCan Mini Pi5 Robot
+# roboticbase
 
 Starter repository for Dominic's small Raspberry Pi 5 robot platform.
 
