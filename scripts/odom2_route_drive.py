@@ -21,7 +21,7 @@ from _odom_common import (
 )
 from tcr_minibot.hardware.motors import DifferentialMotors, MotorConfig
 from tcr_minibot.motion.differential_drive import arcade_to_wheel_power, clamp
-from tcr_minibot.odometry.fused_odometry import wrap_pi
+from tcr_minibot.odometry.fused_odometry import copy_pose, wrap_pi
 from tcr_minibot.utils.config import load_config
 
 
@@ -38,7 +38,7 @@ def stop_and_sleep(motors: DifferentialMotors, seconds: float = 0.25) -> None:
 
 
 def run_straight_step(reader, odom, motors: DifferentialMotors, args: argparse.Namespace, distance_m: float) -> None:
-    start_pose = odom.pose
+    start_pose = copy_pose(odom.pose)
     target_heading = start_pose.heading_rad
     target_distance = abs(distance_m)
     direction = 1.0 if distance_m >= 0.0 else -1.0
