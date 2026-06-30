@@ -12,7 +12,7 @@ lidar:
   frame_header: 0x54
   frame_ver_len: 0x2c
   points_per_packet: 12
-  mount_yaw_offset_deg: 0.0  # adjust after you know which physical direction is robot-front
+  mount_yaw_offset_deg: 1.0  # adjust after you know which physical direction is robot-front
   min_distance_m: 0.08
   max_distance_m: 8.0
   min_confidence: 0
@@ -41,9 +41,9 @@ encoders:
   left_channel_b: 17
   right_channel_a: 4
   right_channel_b: 22
-  left_inverted: false
+  left_inverted: true
   right_inverted: false
-  ticks_per_wheel_rev: 40    # TODO: measure this with scripts/odom0_watch_encoders.py
+  ticks_per_wheel_rev: 600    # TODO: HAS BEEND ONE ITS 600 measure this with scripts/odom0_watch_encoders.py
 
 odometry:
   gyro_delta_weight: 0.0     # future IMU hook; keep 0 until gyro bias is calibrated
