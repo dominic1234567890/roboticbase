@@ -10,20 +10,24 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from _odom_common import (
+    HeadingPidController,
     add_current_motor_args,
     add_encoder_pin_args,
+    add_heading_pid_args,
     add_odometry_args,
     describe_motor_args,
     format_pose,
+    heading_pid_config_from_args,
     make_encoder_reader,
     make_odometry,
     motor_config_from_args,
     parse_route,
     route_summary,
+    wrap_pi,
 )
 from tcr_minibot.hardware.motors import DifferentialMotors
 from tcr_minibot.motion.differential_drive import arcade_to_wheel_power, clamp
-from tcr_minibot.odometry.fused_odometry import copy_pose, wrap_pi
+from tcr_minibot.odometry.fused_odometry import copy_pose
 from tcr_minibot.utils.config import load_config
 
 
@@ -46,14 +50,18 @@ def run_straight_step(reader, odom, motors: DifferentialMotors, args: argparse.N
     direction = 1.0 if distance_m >= 0.0 else -1.0
     stable_since_s: float | None = None
     start_s = monotonic()
+    pid = HeadingPidController(heading_pid_config_from_args(args))
+    pid.reset(target_heading)
 
-    print(f"straight target={distance_m:+.3f} m")
+    print(
+        f"straight target={distance_m:+.3f} m using heading PID "
+        f"kp={args.heading_kp:.3f} ki={args.heading_ki:.3f} kd={args.heading_kd:.3f}"
+    )
     while True:
         update = odom.update(reader.read_left_ticks(), reader.read_right_ticks(), now_s=monotonic())
         pose = update.pose
         traveled = distance_from(start_pose.x_m, start_pose.y_m, pose.x_m, pose.y_m)
         remaining = target_distance - traveled
-        heading_error = wrap_pi(target_heading - pose.heading_rad)
 
         if remaining <= args.straight_tolerance_m:
             if stable_since_s is None:
@@ -69,12 +77,16 @@ def run_straight_step(reader, odom, motors: DifferentialMotors, args: argparse.N
             stop_and_sleep(motors)
             raise TimeoutError("straight step timed out")
 
+        dt_s = update.dt_s or (1.0 / args.control_hz)
+        turn_power, heading_error_deg = pid.update(pose.heading_rad, dt_s)
         slow_factor = clamp(remaining / max(args.slowdown_distance_m, 1e-6), 0.35, 1.0)
         forward_power = direction * args.forward_power * slow_factor
-        turn_power = math.degrees(heading_error) * args.heading_kp
-        turn_power = clamp(turn_power, -args.max_turn_correction, args.max_turn_correction)
         cmd = arcade_to_wheel_power(forward_power, turn_power, max_abs=args.max_power)
         motors.drive_power(cmd)
+        print(
+            f"straight: remaining={remaining:+.3f} m heading_error={heading_error_deg:+.2f} deg "
+            f"turn_correction={turn_power:+.2f}%"
+        )
         sleep(1.0 / args.control_hz)
 
 
@@ -114,12 +126,14 @@ def run_turn_step(reader, odom, motors: DifferentialMotors, args: argparse.Names
 
 def main() -> None:
     cfg = load_config()
+    route_cfg = cfg.get("route_drive", {})
+    pid_cfg = cfg.get("drive_forward_test", {})
     ap = argparse.ArgumentParser(
         description="Guarded route runner using encoder odometry. Start with wheels off the ground, then low power on the floor."
     )
     ap.add_argument(
         "--route",
-        default="straight:1.0,right:90,straight:1.0,left:90,straight:1.0",
+        default=route_cfg.get("route", "straight:1.0,right:90,straight:1.0,left:90,straight:1.0"),
         help="Comma route, for example straight:1.0,right:90,straight:1.0,left:90,straight:1.0",
     )
     ap.add_argument("--dry-run", action="store_true", help="Parse/print route but do not touch GPIO or motors")
@@ -129,23 +143,26 @@ def main() -> None:
     add_odometry_args(ap, cfg)
     add_current_motor_args(ap, cfg)
     control = ap.add_argument_group("route controller")
-    control.add_argument("--control-hz", type=float, default=20.0)
-    control.add_argument("--forward-power", type=float, default=14.0)
-    control.add_argument("--turn-power", type=float, default=13.0)
-    control.add_argument("--min-turn-power", type=float, default=7.0)
-    control.add_argument("--heading-kp", type=float, default=0.45, help="Straight-line heading correction power per heading degree")
-    control.add_argument("--turn-kp", type=float, default=0.45, help="Turn power per heading error degree")
-    control.add_argument("--max-turn-correction", type=float, default=8.0)
-    control.add_argument("--slowdown-distance-m", type=float, default=0.25)
-    control.add_argument("--straight-tolerance-m", type=float, default=0.03)
-    control.add_argument("--turn-tolerance-deg", type=float, default=3.0)
-    control.add_argument("--settle-s", type=float, default=0.15)
-    control.add_argument("--step-timeout-s", type=float, default=20.0)
+    control.add_argument("--control-hz", type=float, default=float(route_cfg.get("control_hz", 20.0)))
+    control.add_argument("--forward-power", type=float, default=float(route_cfg.get("forward_power_percent", 14.0)))
+    control.add_argument("--turn-power", type=float, default=float(route_cfg.get("turn_power_percent", 13.0)))
+    control.add_argument("--min-turn-power", type=float, default=float(route_cfg.get("min_turn_power_percent", 7.0)))
+    control.add_argument("--turn-kp", type=float, default=float(route_cfg.get("turn_kp", 0.45)), help="Turn power per heading error degree")
+    control.add_argument("--slowdown-distance-m", type=float, default=float(route_cfg.get("slowdown_distance_m", 0.25)))
+    control.add_argument("--straight-tolerance-m", type=float, default=float(route_cfg.get("straight_tolerance_m", 0.03)))
+    control.add_argument("--turn-tolerance-deg", type=float, default=float(route_cfg.get("turn_tolerance_deg", 3.0)))
+    control.add_argument("--settle-s", type=float, default=float(route_cfg.get("settle_s", 0.15)))
+    control.add_argument("--step-timeout-s", type=float, default=float(route_cfg.get("step_timeout_s", 20.0)))
+    add_heading_pid_args(ap, pid_cfg)
     args = ap.parse_args()
 
     steps = parse_route(args.route)
     print("route:", route_summary(steps))
     print(f"Using motor config: {describe_motor_args(args)}")
+    print(
+        f"Straight heading PID: kp={args.heading_kp:.3f} ki={args.heading_ki:.3f} "
+        f"kd={args.heading_kd:.3f} max_correction={args.max_turn_correction:.1f}%"
+    )
 
     if args.dry_run or not args.enable_motors:
         print("Dry run only. Add --enable-motors and the acknowledgement flag to drive.")
