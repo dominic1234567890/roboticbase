@@ -16,7 +16,7 @@ from tcr_minibot.utils.config import load_config
 def main() -> None:
     cfg = load_config()
     ap = argparse.ArgumentParser(description="Compute differential-drive pose from wheel encoders only")
-    add_encoder_pin_args(ap)
+    add_encoder_pin_args(ap, cfg)
     add_odometry_args(ap, cfg)
     ap.add_argument("--print-hz", type=float, default=5.0)
     ap.add_argument("--duration", type=float, default=0.0, help="Seconds to run. 0 means forever.")
@@ -32,7 +32,8 @@ def main() -> None:
 
     print("Wheel odometry watch started.")
     print("Push the robot by hand or run motors from another terminal at very low power.")
-    print("If forward motion makes x go negative, add --left-invert and/or --right-invert until both wheels count forward.")
+    print("If forward motion makes x go negative, change left_inverted/right_inverted in config/robot.yaml or override with CLI flags.")
+    print(f"encoder signs: left_invert={args.left_invert} right_invert={args.right_invert}")
     print(
         f"calibration: wheel_radius={args.wheel_radius_m:.4f} m, "
         f"wheel_track={args.wheel_track_m:.4f} m, ticks_per_rev={args.ticks_per_rev}"

@@ -8,8 +8,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from _odom_common import add_current_motor_args
-from tcr_minibot.hardware.motors import DifferentialMotors, MotorConfig
+from _odom_common import add_current_motor_args, describe_motor_args, motor_config_from_args
+from tcr_minibot.hardware.motors import DifferentialMotors
 from tcr_minibot.motion.differential_drive import WheelCommands
 from tcr_minibot.perception.lidar_filters import aggregate_one_scan, compute_zone_distances, valid_points
 from tcr_minibot.sensors.lidar_ld20 import SerialLD20
@@ -46,16 +46,23 @@ def main() -> None:
     ap.add_argument("--port", default=cfg["lidar"]["port"])
     ap.add_argument("--baud", type=int, default=cfg["lidar"]["baud"])
     ap.add_argument("--skip-crc", action="store_true")
-    ap.add_argument("--min-points", type=int, default=300)
+    ap.add_argument("--min-points", type=int, default=int(safety_cfg.get("front_gate_min_points", 900)))
     ap.add_argument("--front-stop-distance-m", type=float, default=float(safety_cfg.get("front_stop_distance_m", 0.35)))
     ap.add_argument("--front-half-angle-deg", type=float, default=float(safety_cfg.get("front_zone_half_angle_deg", 25.0)))
     ap.add_argument("--drive-forward-test", action="store_true", help="Actually try a short forward motor move if clear")
-    ap.add_argument("--power", type=float, default=12.0, help="Forward test power percent")
-    ap.add_argument("--seconds", type=float, default=1.0, help="Forward test duration")
-    ap.add_argument("--poll-s", type=float, default=0.20, help="Minimum delay between safety checks while moving")
+    ap.add_argument("--power", type=float, default=float(safety_cfg.get("front_gate_test_power_percent", 12.0)), help="Forward test power percent")
+    ap.add_argument("--seconds", type=float, default=float(safety_cfg.get("front_gate_test_seconds", 1.0)), help="Forward test duration")
+    ap.add_argument("--poll-s", type=float, default=float(safety_cfg.get("front_gate_poll_s", 0.20)), help="Minimum delay between safety checks while moving")
     ap.add_argument(ARM_FLAG, action="store_true", dest="armed_ack")
-    add_current_motor_args(ap)
+    add_current_motor_args(ap, cfg)
     args = ap.parse_args()
+
+    print(f"Using motor config: {describe_motor_args(args)}")
+    print(
+        f"Using safety gate: min_points={args.min_points} "
+        f"front_half_angle={args.front_half_angle_deg:.1f} deg "
+        f"stop_distance={args.front_stop_distance_m:.3f} m"
+    )
 
     lidar = SerialLD20(
         args.port,
@@ -78,14 +85,7 @@ def main() -> None:
             print(f"Refusing to drive. Re-run with {ARM_FLAG} after the robot is on the floor and the space is clear.")
             raise SystemExit(2)
 
-        motor_cfg = MotorConfig(
-            left_port=args.left_motor_port,
-            right_port=args.right_motor_port,
-            left_reversed=args.left_motor_reversed,
-            right_reversed=args.right_motor_reversed,
-            max_power_percent=args.max_power,
-        )
-        motors = DifferentialMotors(motor_cfg, armed=True)
+        motors = DifferentialMotors(motor_config_from_args(args), armed=True)
         if blocked:
             motors.stop()
             print("Emergency stop gate refused motion because the front zone is blocked or unknown.")

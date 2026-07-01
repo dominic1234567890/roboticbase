@@ -133,7 +133,7 @@ def main() -> None:
     ap.add_argument("--point-cloud-csv", default=None)
     ap.add_argument("--max-gap-m", type=float, default=mapping_cfg.get("edge_max_neighbor_gap_m", 0.18))
     ap.add_argument("--max-line-error-m", type=float, default=mapping_cfg.get("edge_max_line_error_m", 0.035))
-    add_encoder_pin_args(ap)
+    add_encoder_pin_args(ap, cfg)
     add_odometry_args(ap, cfg)
     add_lidar_filter_args(ap, mapping_cfg)
     args = ap.parse_args()

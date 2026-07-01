@@ -28,7 +28,8 @@ camera:
   mount_pitch_deg: 0.0
 
 fusion_hat:
-  # Current new TT motor wiring
+  # Single source of truth for motor wiring. Scripts may override these from the CLI,
+  # but their defaults come from this section.
   motor_left_port: M3
   motor_right_port: M2
   left_reversed: false       # flip this after a propped-up tiny pulse test if needed
@@ -43,17 +44,38 @@ encoders:
   right_channel_b: 22
   left_inverted: true
   right_inverted: false
-  ticks_per_wheel_rev: 600    # TODO: HAS BEEND ONE ITS 600 measure this with scripts/odom0_watch_encoders.py
+  ticks_per_wheel_rev: 600    # TODO: measure this with scripts/odom0_watch_encoders.py
 
 odometry:
   gyro_delta_weight: 0.0     # future IMU hook; keep 0 until gyro bias is calibrated
   absolute_heading_weight: 0.0
+
+drive_forward_test:
+  # Start in open-loop mode to measure drift, then try heading-pid if it curves.
+  mode: open-loop
+  power_percent: 12.0
+  seconds: 1.0
+  target_distance_m: 0.0      # 0 means stop by time only
+  control_hz: 20.0
+  print_hz: 5.0
+  left_trim_percent: 0.0
+  right_trim_percent: 0.0
+  heading_kp: 0.45
+  heading_ki: 0.0
+  heading_kd: 0.0
+  integral_limit_deg_s: 60.0
+  max_turn_correction_percent: 8.0
+  csv: data/captures/drive_forward_test.csv
 
 safety:
   front_stop_distance_m: 0.35
   side_stop_distance_m: 0.20
   front_zone_half_angle_deg: 25
   side_zone_width_deg: 35
+  front_gate_min_points: 900
+  front_gate_test_power_percent: 12.0
+  front_gate_test_seconds: 1.0
+  front_gate_poll_s: 0.20
 
 mapping:
   cell_size_m: 0.05
