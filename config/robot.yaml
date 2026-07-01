@@ -33,7 +33,7 @@ fusion_hat:
   motor_left_port: M3
   motor_right_port: M2
   left_reversed: false       # flip this after a propped-up tiny pulse test if needed
-  right_reversed: false      # flip this after a propped-up tiny pulse test if needed
+  right_reversed: true      # flip this after a propped-up tiny pulse test if needed
   max_test_power_percent: 20
 
 encoders:
