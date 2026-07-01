@@ -13,10 +13,18 @@ except Exception:  # pragma: no cover
 
 @dataclass
 class MotorConfig:
-    left_port: str = "M0"
-    right_port: str = "M1"
+    """
+    Resolved motor configuration passed into the hardware wrapper.
+
+    Project defaults live in config/robot.yaml. These dataclass defaults are
+    emergency fallbacks for direct imports or tiny unit tests, not the normal
+    place to calibrate the robot.
+    """
+
+    left_port: str = "M3"
+    right_port: str = "M2"
     left_reversed: bool = False
-    right_reversed: bool = True
+    right_reversed: bool = False
     max_power_percent: float = 20.0
 
 

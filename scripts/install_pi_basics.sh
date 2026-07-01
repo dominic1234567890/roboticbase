@@ -10,6 +10,8 @@ sudo apt install -y \
   python3-opencv \
   python3-matplotlib \
   python3-yaml \
+  python3-gpiozero \
+  python3-lgpio \
   v4l-utils \
   minicom
 
