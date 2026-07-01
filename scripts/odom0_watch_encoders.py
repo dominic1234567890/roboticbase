@@ -9,11 +9,13 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from _odom_common import add_encoder_pin_args, make_encoder_reader
+from tcr_minibot.utils.config import load_config
 
 
 def main() -> None:
+    cfg = load_config()
     ap = argparse.ArgumentParser(description="Watch left/right quadrature encoder counts live")
-    add_encoder_pin_args(ap)
+    add_encoder_pin_args(ap, cfg)
     ap.add_argument("--print-hz", type=float, default=4.0)
     ap.add_argument("--duration", type=float, default=0.0, help="Seconds to run. 0 means forever.")
     args = ap.parse_args()
@@ -23,8 +25,9 @@ def main() -> None:
     reader.reset()
 
     print("Encoder watch started.")
-    print("Current default mapping is LEFT=GPIO27/GPIO17 and RIGHT=GPIO4/GPIO22.")
-    print("Spin each wheel by hand. Positive/negative direction can be flipped with --left-invert or --right-invert.")
+    print(f"Using encoder pins: LEFT=GPIO{args.left_a}/GPIO{args.left_b} RIGHT=GPIO{args.right_a}/GPIO{args.right_b}")
+    print(f"Using encoder signs: left_invert={args.left_invert} right_invert={args.right_invert}")
+    print("Spin each wheel by hand. Change config/robot.yaml for defaults, or override with CLI flags for one run.")
 
     start_s = monotonic()
     last_s = start_s

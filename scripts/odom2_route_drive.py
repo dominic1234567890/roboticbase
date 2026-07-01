@@ -13,13 +13,15 @@ from _odom_common import (
     add_current_motor_args,
     add_encoder_pin_args,
     add_odometry_args,
+    describe_motor_args,
     format_pose,
     make_encoder_reader,
     make_odometry,
+    motor_config_from_args,
     parse_route,
     route_summary,
 )
-from tcr_minibot.hardware.motors import DifferentialMotors, MotorConfig
+from tcr_minibot.hardware.motors import DifferentialMotors
 from tcr_minibot.motion.differential_drive import arcade_to_wheel_power, clamp
 from tcr_minibot.odometry.fused_odometry import copy_pose, wrap_pi
 from tcr_minibot.utils.config import load_config
@@ -123,9 +125,9 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="Parse/print route but do not touch GPIO or motors")
     ap.add_argument("--enable-motors", action="store_true", help="Required before any motion command is sent")
     ap.add_argument(ARM_FLAG, action="store_true", dest="armed_ack")
-    add_encoder_pin_args(ap)
+    add_encoder_pin_args(ap, cfg)
     add_odometry_args(ap, cfg)
-    add_current_motor_args(ap)
+    add_current_motor_args(ap, cfg)
     control = ap.add_argument_group("route controller")
     control.add_argument("--control-hz", type=float, default=20.0)
     control.add_argument("--forward-power", type=float, default=14.0)
@@ -143,6 +145,7 @@ def main() -> None:
 
     steps = parse_route(args.route)
     print("route:", route_summary(steps))
+    print(f"Using motor config: {describe_motor_args(args)}")
 
     if args.dry_run or not args.enable_motors:
         print("Dry run only. Add --enable-motors and the acknowledgement flag to drive.")
@@ -153,16 +156,7 @@ def main() -> None:
 
     reader = make_encoder_reader(args)
     odom = make_odometry(args)
-    motors = DifferentialMotors(
-        MotorConfig(
-            left_port=args.left_motor_port,
-            right_port=args.right_motor_port,
-            left_reversed=args.left_motor_reversed,
-            right_reversed=args.right_motor_reversed,
-            max_power_percent=args.max_power,
-        ),
-        armed=True,
-    )
+    motors = DifferentialMotors(motor_config_from_args(args), armed=True)
 
     try:
         odom.reset(
