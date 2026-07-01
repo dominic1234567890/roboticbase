@@ -50,6 +50,23 @@ odometry:
   gyro_delta_weight: 0.0     # future IMU hook; keep 0 until gyro bias is calibrated
   absolute_heading_weight: 0.0
 
+drive_forward_test:
+  # Start in open-loop mode to measure drift, then try heading-pid if it curves.
+  mode: open-loop
+  power_percent: 12.0
+  seconds: 1.0
+  target_distance_m: 0.0      # 0 means stop by time only
+  control_hz: 20.0
+  print_hz: 5.0
+  left_trim_percent: 0.0
+  right_trim_percent: 0.0
+  heading_kp: 0.45
+  heading_ki: 0.0
+  heading_kd: 0.0
+  integral_limit_deg_s: 60.0
+  max_turn_correction_percent: 8.0
+  csv: data/captures/drive_forward_test.csv
+
 safety:
   front_stop_distance_m: 0.35
   side_stop_distance_m: 0.20
