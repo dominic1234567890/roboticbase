@@ -314,18 +314,8 @@ def plot_map(mapper: RoomMapper, scans: list[tuple[str, MappingScan]], save_path
     for index, (scan_id, scan) in enumerate(scans):
         _scatter_scan(ax, scan.points, label=scan_id)
         _plot_edges(ax, scan.edge_segments)
-        ax.scatter([scan.pose.x_m], [scan.pose.y_m], marker="x", s=45)
-        ax.arrow(
-            scan.pose.x_m,
-            scan.pose.y_m,
-            0.18 * math.cos(scan.pose.heading_rad),
-            0.18 * math.sin(scan.pose.heading_rad),
-            head_width=0.04,
-            length_includes_head=True,
-            alpha=0.75,
-        )
-        if index == 0 or index == len(scans) - 1:
-            ax.text(scan.pose.x_m, scan.pose.y_m, scan_id, fontsize=8)
+        # MappingScan stores already-transformed map points/edges, but does not
+        # keep the original robot pose. The point cloud is still plotted correctly.
 
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlabel("x forward from start pose (m)")
