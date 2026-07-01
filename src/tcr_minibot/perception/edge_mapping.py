@@ -54,6 +54,7 @@ class EdgeMappingConfig:
 class MappingScan:
     points: list[XYPoint]
     edge_segments: list[EdgeSegment]
+    pose: Pose2D = field(default_factory=Pose2D)
 
 
 @dataclass(frozen=True)
@@ -83,7 +84,7 @@ class RoomMapper:
         self.point_cloud.extend(world_points)
         self.edge_segments.extend(world_segments)
         self.scan_count += 1
-        return MappingScan(points=world_points, edge_segments=world_segments)
+        return MappingScan(points=world_points, edge_segments=world_segments, pose=copy_pose(pose))
 
 
 def coerce_xy_points(points: Iterable[LidarPoint | XYPoint]) -> list[XYPoint]:
@@ -213,3 +214,7 @@ def _fit_line(points: list[XYPoint]) -> _LineFit:
         max_error_m=float(distances[max_error_index]),
         max_error_index=max_error_index,
     )
+
+
+def copy_pose(pose: Pose2D) -> Pose2D:
+    return Pose2D(x_m=pose.x_m, y_m=pose.y_m, heading_rad=pose.heading_rad)
