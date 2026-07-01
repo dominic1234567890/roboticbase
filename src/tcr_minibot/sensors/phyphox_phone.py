@@ -9,6 +9,14 @@ from urllib.parse import quote
 from urllib.request import urlopen
 
 
+BUFFER_ALIASES: dict[str, tuple[str, ...]] = {
+    "x": ("x", "gyrX", "gyroX"),
+    "y": ("y", "gyrY", "gyroY"),
+    "z": ("z", "gyrZ", "gyroZ"),
+    "t": ("t", "gyr_time", "time"),
+}
+
+
 @dataclass(frozen=True)
 class PhyphoxConfig:
     """Connection settings for phyphox Remote Access.
@@ -31,10 +39,10 @@ class PhyphoxError(RuntimeError):
 class PhyphoxPhoneGyro:
     """Small phyphox REST client for using a phone gyro as a temporary yaw sensor.
 
-    The built-in phyphox Gyroscope experiment normally exposes buffers named
-    x, y, z, and t. For a phone mounted flat on top of the robot, z is usually
-    yaw rate around the vertical axis. If your mounting is different, pass a
-    different yaw_rate_buffer.
+    phyphox Gyroscope buffer names vary by platform/experiment. Some expose
+    x/y/z, while the iPhone Gyroscope (rotation rate) experiment exposes gyrX,
+    gyrY, and gyrZ. You can pass either style; simple axis names are resolved
+    automatically from the experiment config when possible.
     """
 
     def __init__(self, config: PhyphoxConfig) -> None:
@@ -47,6 +55,7 @@ class PhyphoxPhoneGyro:
         self.last_yaw_rate_radps: float | None = None
         self.last_sample_s: float | None = None
         self.last_error: str | None = None
+        self._resolved_yaw_rate_buffer: str | None = None
 
     def fetch_json(self, path_and_query: str) -> dict[str, Any]:
         url = f"{self.base_url}/{path_and_query.lstrip('/')}"
@@ -88,13 +97,32 @@ class PhyphoxPhoneGyro:
             cfg = self.get_config()
         except PhyphoxError:
             return []
-        buffers = cfg.get("buffers", [])
-        names: list[str] = []
-        if isinstance(buffers, list):
-            for item in buffers:
-                if isinstance(item, dict) and isinstance(item.get("name"), str):
-                    names.append(item["name"])
-        return names
+        return buffer_names_from_config(cfg)
+
+    def resolve_yaw_rate_buffer(self) -> str:
+        if self._resolved_yaw_rate_buffer is not None:
+            return self._resolved_yaw_rate_buffer
+
+        requested = self.config.yaw_rate_buffer.strip()
+        if not requested:
+            raise PhyphoxError("Empty yaw-rate buffer name")
+
+        available = self.buffer_names()
+        available_set = set(available)
+        if requested in available_set:
+            self._resolved_yaw_rate_buffer = requested
+            return requested
+
+        for alias in BUFFER_ALIASES.get(requested, (requested,)):
+            if alias in available_set:
+                print(f"Resolved phyphox buffer {requested!r} -> {alias!r}")
+                self._resolved_yaw_rate_buffer = alias
+                return alias
+
+        # If config lookup failed or did not list buffers, keep the user-provided
+        # value so the /get error can show what phyphox actually returned.
+        self._resolved_yaw_rate_buffer = requested
+        return requested
 
     def read_yaw_rate_radps(self) -> float:
         raw = self._read_raw_yaw_rate_radps()
@@ -121,12 +149,17 @@ class PhyphoxPhoneGyro:
             sleep(period_s)
 
         if not values:
-            raise PhyphoxError("Could not collect any phone gyro samples for calibration")
+            names = self.buffer_names()
+            available = ", ".join(names) if names else "unknown"
+            raise PhyphoxError(
+                "Could not collect any phone gyro samples for calibration. "
+                f"Requested buffer={self.config.yaw_rate_buffer!r}; available buffers={available}"
+            )
         self.bias_radps = sum(values) / len(values)
         return self.bias_radps
 
     def _read_raw_yaw_rate_radps(self) -> float:
-        buffer_name = self.config.yaw_rate_buffer
+        buffer_name = self.resolve_yaw_rate_buffer()
         data = self.fetch_json(f"get?{quote(buffer_name)}")
         buffer_root = data.get("buffer")
         if not isinstance(buffer_root, dict):
@@ -146,6 +179,16 @@ class PhyphoxPhoneGyro:
             if isinstance(value, (int, float)) and math.isfinite(float(value)):
                 return float(value)
         raise PhyphoxError(f"Buffer {buffer_name!r} had no finite numeric values")
+
+
+def buffer_names_from_config(cfg: dict[str, Any]) -> list[str]:
+    buffers = cfg.get("buffers", [])
+    names: list[str] = []
+    if isinstance(buffers, list):
+        for item in buffers:
+            if isinstance(item, dict) and isinstance(item.get("name"), str):
+                names.append(item["name"])
+    return names
 
 
 def normalize_base_url(raw_url: str) -> str:
