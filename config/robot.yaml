@@ -67,12 +67,26 @@ drive_forward_test:
   max_turn_correction_percent: 8.0
   csv: data/captures/drive_forward_test.csv
 
+route_drive:
+  route: straight:1.0,right:90,straight:1.0,left:90,straight:1.0
+  control_hz: 20.0
+  forward_power_percent: 14.0
+  turn_power_percent: 13.0
+  min_turn_power_percent: 7.0
+  turn_kp: 0.45
+  slowdown_distance_m: 0.25
+  straight_tolerance_m: 0.03
+  turn_tolerance_deg: 3.0
+  settle_s: 0.15
+  step_timeout_s: 20.0
+
 safety:
   front_stop_distance_m: 0.35
   side_stop_distance_m: 0.20
   front_zone_half_angle_deg: 25
   side_zone_width_deg: 35
   front_gate_min_points: 900
+  front_gate_drive_mode: heading-pid
   front_gate_test_power_percent: 12.0
   front_gate_test_seconds: 1.0
   front_gate_poll_s: 0.20

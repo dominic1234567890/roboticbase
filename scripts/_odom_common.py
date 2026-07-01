@@ -192,6 +192,86 @@ def describe_motor_args(args: argparse.Namespace) -> str:
     )
 
 
+@dataclass(frozen=True)
+class HeadingPidConfig:
+    kp: float = 0.45
+    ki: float = 0.0
+    kd: float = 0.0
+    integral_limit_deg_s: float = 60.0
+    max_turn_correction_percent: float = 8.0
+
+
+@dataclass
+class HeadingPidController:
+    """Small heading-hold PID used by every straight-driving script."""
+
+    config: HeadingPidConfig
+    target_heading_rad: float = 0.0
+    integral_deg_s: float = 0.0
+    previous_error_deg: float | None = None
+
+    def reset(self, target_heading_rad: float) -> None:
+        self.target_heading_rad = target_heading_rad
+        self.integral_deg_s = 0.0
+        self.previous_error_deg = None
+
+    def update(self, current_heading_rad: float, dt_s: float) -> tuple[float, float]:
+        dt = max(1e-6, dt_s)
+        error_deg = math.degrees(wrap_pi(self.target_heading_rad - current_heading_rad))
+        derivative_deg_s = 0.0 if self.previous_error_deg is None else (error_deg - self.previous_error_deg) / dt
+        self.previous_error_deg = error_deg
+
+        self.integral_deg_s += error_deg * dt
+        limit = abs(self.config.integral_limit_deg_s)
+        self.integral_deg_s = clamp(self.integral_deg_s, -limit, limit)
+
+        correction = (
+            self.config.kp * error_deg
+            + self.config.ki * self.integral_deg_s
+            + self.config.kd * derivative_deg_s
+        )
+        max_correction = abs(self.config.max_turn_correction_percent)
+        return clamp(correction, -max_correction, max_correction), error_deg
+
+
+def heading_pid_config_from_args(args: argparse.Namespace) -> HeadingPidConfig:
+    return HeadingPidConfig(
+        kp=args.heading_kp,
+        ki=args.heading_ki,
+        kd=args.heading_kd,
+        integral_limit_deg_s=args.integral_limit_deg_s,
+        max_turn_correction_percent=args.max_turn_correction,
+    )
+
+
+def add_heading_pid_args(ap: argparse.ArgumentParser, cfg_section: dict[str, Any] | None = None) -> None:
+    section = cfg_section if isinstance(cfg_section, dict) else {}
+    group = ap.add_argument_group("straight heading PID")
+    group.add_argument("--heading-kp", type=float, default=float(section.get("heading_kp", 0.45)))
+    group.add_argument("--heading-ki", type=float, default=float(section.get("heading_ki", 0.0)))
+    group.add_argument("--heading-kd", type=float, default=float(section.get("heading_kd", 0.0)))
+    group.add_argument(
+        "--integral-limit-deg-s",
+        type=float,
+        default=float(section.get("integral_limit_deg_s", 60.0)),
+        help="Anti-windup clamp for heading error integral.",
+    )
+    group.add_argument(
+        "--max-turn-correction",
+        type=float,
+        default=float(section.get("max_turn_correction_percent", section.get("max_turn_correction", 8.0))),
+        help="Maximum heading correction in motor power percent.",
+    )
+
+
+def wrap_pi(angle_rad: float) -> float:
+    return (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
+
+
+def clamp(value: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, value))
+
+
 def format_pose(x_m: float, y_m: float, heading_rad: float) -> str:
     return f"x={x_m:+.3f} m y={y_m:+.3f} m heading={math.degrees(heading_rad):+.1f} deg"
 
